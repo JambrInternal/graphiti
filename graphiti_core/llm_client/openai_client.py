@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from .config import DEFAULT_MAX_TOKENS, LLMConfig
 from .openai_base_client import DEFAULT_REASONING, DEFAULT_VERBOSITY, BaseOpenAIClient
 
+DEFAULT_SERVICE_TIER = 'default'
 
 class OpenAIClient(BaseOpenAIClient):
     """
@@ -42,6 +43,7 @@ class OpenAIClient(BaseOpenAIClient):
         client: typing.Any = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
         reasoning: str = DEFAULT_REASONING,
+        service_tier: typing.Optional[typing.Literal["auto", "default", "flex", "scale", "priority"]] = DEFAULT_SERVICE_TIER,
         verbosity: str = DEFAULT_VERBOSITY,
     ):
         """
@@ -54,6 +56,7 @@ class OpenAIClient(BaseOpenAIClient):
         """
         super().__init__(config, cache, max_tokens, reasoning, verbosity)
 
+        self.service_tier = service_tier
         if config is None:
             config = LLMConfig()
 
@@ -83,6 +86,7 @@ class OpenAIClient(BaseOpenAIClient):
             'input': messages,  # type: ignore
             'max_output_tokens': max_tokens,
             'text_format': response_model,  # type: ignore
+            'service_tier': self.service_tier,
         }
 
         temperature_value = temperature if not is_reasoning_model else None
