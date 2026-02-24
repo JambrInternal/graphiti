@@ -51,7 +51,7 @@ from graphiti_core.driver.operations.next_episode_edge_ops import NextEpisodeEdg
 from graphiti_core.driver.operations.saga_node_ops import SagaNodeOperations
 from graphiti_core.driver.operations.search_ops import SearchOperations
 from graphiti_core.driver.query_executor import Transaction
-from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices
+from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices, get_vector_indices
 from graphiti_core.helpers import semaphore_gather
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,9 @@ class Neo4jDriver(GraphDriver):
 
         fulltext_indices: list[LiteralString] = get_fulltext_indices(self.provider)
 
-        index_queries: list[LiteralString] = range_indices + fulltext_indices
+        vector_indices: list[LiteralString] = get_vector_indices(self.provider)
+
+        index_queries: list[LiteralString] = range_indices + fulltext_indices + vector_indices
 
         await semaphore_gather(*[self._execute_index_query(query) for query in index_queries])
 
