@@ -45,6 +45,13 @@ from graphiti_core.search.search_filters import (
     edge_search_filter_query_constructor,
     node_search_filter_query_constructor,
 )
+from graphiti_core.search.neo4j_vector_search import (
+    build_community_vector_search_query,
+    build_edge_vector_search_query,
+    build_node_vector_search_query,
+    mark_search_index_fallback,
+    should_use_search_index,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +139,21 @@ class Neo4jSearchOperations(SearchOperations):
         limit: int = 10,
         min_score: float = 0.6,
     ) -> list[EntityNode]:
+        if should_use_search_index(executor):
+            try:
+                query, extra_params = build_node_vector_search_query(search_filter, group_ids)
+                records, _, _ = await executor.execute_query(
+                    query,
+                    search_vector=search_vector,
+                    limit=limit,
+                    min_score=min_score,
+                    routing_='r',
+                    **extra_params,
+                )
+                return [entity_node_from_record(r) for r in records]
+            except Exception as exc:
+                mark_search_index_fallback(executor, exc)
+
         filter_queries, filter_params = node_search_filter_query_constructor(
             search_filter, GraphProvider.NEO4J
         )
@@ -290,6 +312,23 @@ class Neo4jSearchOperations(SearchOperations):
         limit: int = 10,
         min_score: float = 0.6,
     ) -> list[EntityEdge]:
+        if should_use_search_index(executor):
+            try:
+                query, extra_params = build_edge_vector_search_query(
+                    search_filter, group_ids, source_node_uuid, target_node_uuid
+                )
+                records, _, _ = await executor.execute_query(
+                    query,
+                    search_vector=search_vector,
+                    limit=limit,
+                    min_score=min_score,
+                    routing_='r',
+                    **extra_params,
+                )
+                return [entity_edge_from_record(r) for r in records]
+            except Exception as exc:
+                mark_search_index_fallback(executor, exc)
+
         filter_queries, filter_params = edge_search_filter_query_constructor(
             search_filter, GraphProvider.NEO4J
         )
@@ -486,6 +525,21 @@ class Neo4jSearchOperations(SearchOperations):
         limit: int = 10,
         min_score: float = 0.6,
     ) -> list[CommunityNode]:
+        if should_use_search_index(executor):
+            try:
+                query, extra_params = build_community_vector_search_query(group_ids)
+                records, _, _ = await executor.execute_query(
+                    query,
+                    search_vector=search_vector,
+                    limit=limit,
+                    min_score=min_score,
+                    routing_='r',
+                    **extra_params,
+                )
+                return [community_node_from_record(r) for r in records]
+            except Exception as exc:
+                mark_search_index_fallback(executor, exc)
+
         query_params: dict[str, Any] = {}
 
         group_filter_query = ''

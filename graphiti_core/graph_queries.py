@@ -24,6 +24,10 @@ INDEX_TO_LABEL_KUZU_MAPPING = {
     'edge_name_and_fact': 'RelatesToNode_',
 }
 
+NEO4J_ENTITY_VECTOR_INDEX = 'entity_name_embedding_vector'
+NEO4J_COMMUNITY_VECTOR_INDEX = 'community_name_embedding_vector'
+NEO4J_EDGE_VECTOR_INDEX = 'relationship_fact_embeddings'
+
 
 def get_range_indices(provider: GraphProvider) -> list[LiteralString]:
     if provider == GraphProvider.FALKORDB:
@@ -137,6 +141,26 @@ def get_fulltext_indices(provider: GraphProvider) -> list[LiteralString]:
         FOR (n:Community) ON EACH [n.name, n.group_id]""",
         """CREATE FULLTEXT INDEX edge_name_and_fact IF NOT EXISTS
         FOR ()-[e:RELATES_TO]-() ON EACH [e.name, e.fact, e.group_id]""",
+    ]
+
+
+def get_vector_indices(provider: GraphProvider) -> list[LiteralString]:
+    if provider != GraphProvider.NEO4J:
+        return []
+
+    return [
+        f"""CREATE VECTOR INDEX {NEO4J_ENTITY_VECTOR_INDEX} IF NOT EXISTS
+        FOR (n:Entity) ON (n.name_embedding)
+        WITH [n.group_id]
+        OPTIONS {{ indexConfig: {{`vector.similarity_function`: 'cosine'}} }}""",
+        f"""CREATE VECTOR INDEX {NEO4J_COMMUNITY_VECTOR_INDEX} IF NOT EXISTS
+        FOR (c:Community) ON (c.name_embedding)
+        WITH [c.group_id]
+        OPTIONS {{ indexConfig: {{`vector.similarity_function`: 'cosine'}} }}""",
+        f"""CREATE VECTOR INDEX {NEO4J_EDGE_VECTOR_INDEX} IF NOT EXISTS
+        FOR ()-[e:RELATES_TO]-() ON (e.fact_embedding)
+        WITH [e.group_id]
+        OPTIONS {{ indexConfig: {{`vector.similarity_function`: 'cosine'}} }}""",
     ]
 
 

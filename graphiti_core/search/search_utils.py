@@ -57,6 +57,13 @@ from graphiti_core.search.search_filters import (
     edge_search_filter_query_constructor,
     node_search_filter_query_constructor,
 )
+from graphiti_core.search.neo4j_vector_search import (
+    build_community_vector_search_query,
+    build_edge_vector_search_query,
+    build_node_vector_search_query,
+    mark_search_index_fallback,
+    should_use_search_index,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -315,6 +322,23 @@ async def edge_similarity_search(
             limit,
             min_score,
         )
+
+    if driver.provider == GraphProvider.NEO4J and should_use_search_index(driver):
+        try:
+            query, extra_params = build_edge_vector_search_query(
+                search_filter, group_ids, source_node_uuid, target_node_uuid
+            )
+            records, _, _ = await driver.execute_query(
+                query,
+                search_vector=search_vector,
+                limit=limit,
+                min_score=min_score,
+                routing_='r',
+                **extra_params,
+            )
+            return [get_entity_edge_from_record(record, driver.provider) for record in records]
+        except Exception as exc:
+            mark_search_index_fallback(driver, exc)
 
     match_query = """
         MATCH (n:Entity)-[e:RELATES_TO]->(m:Entity)
@@ -678,6 +702,21 @@ async def node_similarity_search(
         return await driver.search_interface.node_similarity_search(
             driver, search_vector, search_filter, group_ids, limit, min_score
         )
+
+    if driver.provider == GraphProvider.NEO4J and should_use_search_index(driver):
+        try:
+            query, extra_params = build_node_vector_search_query(search_filter, group_ids)
+            records, _, _ = await driver.execute_query(
+                query,
+                search_vector=search_vector,
+                limit=limit,
+                min_score=min_score,
+                routing_='r',
+                **extra_params,
+            )
+            return [get_entity_node_from_record(record, driver.provider) for record in records]
+        except Exception as exc:
+            mark_search_index_fallback(driver, exc)
 
     filter_queries, filter_params = node_search_filter_query_constructor(
         search_filter, driver.provider
@@ -1069,6 +1108,21 @@ async def community_similarity_search(
             )
         except NotImplementedError:
             pass
+
+    if driver.provider == GraphProvider.NEO4J and should_use_search_index(driver):
+        try:
+            query, extra_params = build_community_vector_search_query(group_ids)
+            records, _, _ = await driver.execute_query(
+                query,
+                search_vector=search_vector,
+                limit=limit,
+                min_score=min_score,
+                routing_='r',
+                **extra_params,
+            )
+            return [get_community_node_from_record(record) for record in records]
+        except Exception as exc:
+            mark_search_index_fallback(driver, exc)
 
     # vector similarity search over entity names
     query_params: dict[str, Any] = {}

@@ -22,7 +22,7 @@ from graphiti_core.driver.operations.graph_ops import GraphMaintenanceOperations
 from graphiti_core.driver.operations.graph_utils import Neighbor, label_propagation
 from graphiti_core.driver.query_executor import QueryExecutor
 from graphiti_core.driver.record_parsers import community_node_from_record, entity_node_from_record
-from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices
+from graphiti_core.graph_queries import get_fulltext_indices, get_range_indices, get_vector_indices
 from graphiti_core.helpers import semaphore_gather
 from graphiti_core.models.nodes.node_db_queries import (
     COMMUNITY_NODE_RETURN,
@@ -62,7 +62,8 @@ class Neo4jGraphMaintenanceOperations(GraphMaintenanceOperations):
 
         range_indices = get_range_indices(GraphProvider.NEO4J)
         fulltext_indices = get_fulltext_indices(GraphProvider.NEO4J)
-        index_queries = range_indices + fulltext_indices
+        vector_indices = get_vector_indices(GraphProvider.NEO4J)
+        index_queries = range_indices + fulltext_indices + vector_indices
 
         await semaphore_gather(*[executor.execute_query(q) for q in index_queries])
 
